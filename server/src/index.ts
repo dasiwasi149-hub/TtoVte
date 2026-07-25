@@ -35,10 +35,7 @@ app.get('/', (req, res) => {
 
       <div id="video-container">
         <h3>Generated Video:</h3>
-        <video id="player" controls autoplay loop>
-          <source id="video-source" src="" type="video/mp4">
-          Your browser does not support video playback.
-        </video>
+        <video id="player" controls playsinline loop></video>
       </div>
 
       <script>
@@ -47,7 +44,6 @@ app.get('/', (req, res) => {
           const status = document.getElementById('status');
           const videoContainer = document.getElementById('video-container');
           const videoPlayer = document.getElementById('player');
-          const videoSource = document.getElementById('video-source');
 
           if (!prompt) return alert('Please enter a prompt!');
           
@@ -64,9 +60,9 @@ app.get('/', (req, res) => {
             
             if (data.videoUrl) {
               status.innerText = 'Video generated successfully!';
-              videoSource.src = data.videoUrl;
-              videoPlayer.load();
+              videoPlayer.src = data.videoUrl;
               videoContainer.style.display = 'block';
+              videoPlayer.play();
             } else {
               status.innerText = 'Failed to generate video.';
             }
@@ -80,12 +76,12 @@ app.get('/', (req, res) => {
   `);
 });
 
-// 2. Returns an actual video file URL
+// 2. Returns direct video URL
 app.post('/api/generate', (req, res) => {
   const { prompt } = req.body;
   
-  // Free sample video stream URL for testing workflow
-  const sampleVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+  // Reliable HTTPS sample MP4 URL
+  const sampleVideoUrl = "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/person-bicycle-car-detection.mp4";
 
   setTimeout(() => {
     res.json({ 
@@ -93,7 +89,7 @@ app.post('/api/generate', (req, res) => {
       prompt: prompt,
       videoUrl: sampleVideoUrl 
     });
-  }, 2000);
+  }, 1500);
 });
 
 app.listen(PORT, () => {
