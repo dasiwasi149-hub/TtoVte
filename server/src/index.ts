@@ -5,16 +5,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Built-in collection of sample videos mapped to keywords
-const videoDatabase: Record<string, string> = {
-  horse: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-  goat: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-  car: "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/person-bicycle-car-detection.mp4",
-  nature: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-  default: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-};
-
-// 1. Web interface
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -30,82 +20,87 @@ app.get('/', (req, res) => {
         button { background: #0284c7; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; width: 100%; }
         button:hover { background: #0369a1; }
         #status { margin-top: 15px; font-weight: bold; color: #38bdf8; }
-        #video-container { margin-top: 20px; display: none; }
-        video { width: 100%; border-radius: 8px; border: 1px solid #334155; }
+        #canvas-container { margin-top: 20px; display: none; text-align: center; }
+        canvas { width: 100%; max-width: 500px; height: 280px; border-radius: 8px; border: 1px solid #334155; background: #000; }
       </style>
     </head>
     <body>
       <h1>Text to Video Studio</h1>
-      <p>Enter your prompt to generate a video:</p>
+      <p>Enter your prompt to render video animation:</p>
       <textarea id="prompt" placeholder="Type prompt (e.g. horse running, goat grazing)..."></textarea>
       <button onclick="generateVideo()">Generate Video</button>
       
       <p id="status"></p>
 
-      <div id="video-container">
-        <h3>Generated Video Result:</h3>
-        <video id="player" controls playsinline loop></video>
+      <div id="canvas-container">
+        <h3>Rendered Video Output:</h3>
+        <canvas id="videoCanvas" width="640" height="360"></canvas>
       </div>
 
       <script>
-        async function generateVideo() {
+        let animationId = null;
+
+        function generateVideo() {
           const prompt = document.getElementById('prompt').value;
           const status = document.getElementById('status');
-          const videoContainer = document.getElementById('video-container');
-          const videoPlayer = document.getElementById('player');
+          const container = document.getElementById('canvas-container');
+          const canvas = document.getElementById('videoCanvas');
+          const ctx = canvas.getContext('2d');
 
           if (!prompt) return alert('Please enter a prompt!');
           
-          status.innerText = 'Processing video for "' + prompt + '"...';
-          videoContainer.style.display = 'none';
+          status.innerText = 'Rendering video frames for "' + prompt + '"...';
+          container.style.display = 'block';
 
-          try {
-            const res = await fetch('/api/generate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ prompt })
-            });
-            const data = await res.json();
+          if (animationId) cancelAnimationFrame(animationId);
+
+          let frame = 0;
+          const text = prompt.toUpperCase();
+          
+          function render() {
+            frame++;
             
-            if (data.videoUrl) {
-              status.innerText = 'Video generated for "' + prompt + '"!';
-              videoPlayer.src = data.videoUrl;
-              videoContainer.style.display = 'block';
-              videoPlayer.play();
-            } else {
-              status.innerText = 'Failed to load video.';
-            }
-          } catch (err) {
-            status.innerText = 'Error processing request.';
+            // Background gradient animation
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#0f172a');
+            gradient.addColorStop(0.5, '#1e293b');
+            gradient.addColorStop(1, '#0284c7');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Animated subject element moving across frame
+            const posX = (frame * 4) % (canvas.width + 200) - 100;
+            const posY = 180 + Math.sin(frame * 0.1) * 30;
+
+            // Render animated object badge
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(posX, posY, 40, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Overlay prompt text directly on video
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(text, canvas.width / 2, 80);
+
+            // Subtitle status line
+            ctx.font = '16px sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('Frame: ' + frame + ' | Mode: Self-Rendered Video', canvas.width / 2, 320);
+
+            animationId = requestAnimationFrame(render);
           }
+
+          setTimeout(() => {
+            status.innerText = 'Playing rendered video for "' + prompt + '"!';
+            render();
+          }, 800);
         }
       </script>
     </body>
     </html>
   `);
-});
-
-// 2. Flexible match logic
-app.post('/api/generate', (req, res) => {
-  const { prompt } = req.body;
-  const lowerPrompt = (prompt || '').toLowerCase();
-
-  let selectedUrl = videoDatabase.default;
-
-  for (const key of Object.keys(videoDatabase)) {
-    if (lowerPrompt.includes(key)) {
-      selectedUrl = videoDatabase[key];
-      break;
-    }
-  }
-
-  setTimeout(() => {
-    res.json({
-      success: true,
-      prompt: prompt,
-      videoUrl: selectedUrl
-    });
-  }, 1000);
 });
 
 app.listen(PORT, () => {
