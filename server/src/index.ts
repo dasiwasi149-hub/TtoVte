@@ -5,7 +5,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// 1. Web interface with video player
+// 1. Web interface
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -28,13 +28,13 @@ app.get('/', (req, res) => {
     <body>
       <h1>Text to Video Studio</h1>
       <p>Enter your prompt to generate a video:</p>
-      <textarea id="prompt" placeholder="Type your prompt here..."></textarea>
+      <textarea id="prompt" placeholder="Type your prompt (e.g. horse running)..."></textarea>
       <button onclick="generateVideo()">Generate Video</button>
       
       <p id="status"></p>
 
       <div id="video-container">
-        <h3>Generated Video:</h3>
+        <h3 id="video-title">Generated Video:</h3>
         <video id="player" controls playsinline loop></video>
       </div>
 
@@ -47,7 +47,7 @@ app.get('/', (req, res) => {
 
           if (!prompt) return alert('Please enter a prompt!');
           
-          status.innerText = 'Generating video... Please wait.';
+          status.innerText = 'Searching and generating video for "' + prompt + '"...';
           videoContainer.style.display = 'none';
 
           try {
@@ -59,12 +59,12 @@ app.get('/', (req, res) => {
             const data = await res.json();
             
             if (data.videoUrl) {
-              status.innerText = 'Video generated successfully!';
+              status.innerText = 'Video matching "' + prompt + '" loaded successfully!';
               videoPlayer.src = data.videoUrl;
               videoContainer.style.display = 'block';
               videoPlayer.play();
             } else {
-              status.innerText = 'Failed to generate video.';
+              status.innerText = 'No videos found for that prompt. Try another phrase!';
             }
           } catch (err) {
             status.innerText = 'Error processing request.';
@@ -76,20 +76,40 @@ app.get('/', (req, res) => {
   `);
 });
 
-// 2. Returns direct video URL
-app.post('/api/generate', (req, res) => {
+// 2. Fetch video matching the prompt using free API
+app.post('/api/generate', async (req, res) => {
   const { prompt } = req.body;
   
-  // Reliable HTTPS sample MP4 URL
-  const sampleVideoUrl = "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/person-bicycle-car-detection.mp4";
-
-  setTimeout(() => {
-    res.json({ 
-      success: true,
-      prompt: prompt,
-      videoUrl: sampleVideoUrl 
+  try {
+    // Free search API endpoint for stock videos matching prompt
+    const response = await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(prompt)}&per_page=1`, {
+      headers: {
+        'Authorization': '563492ad6f91700001000001b3a4a11c21e44383a152d0008e3eb39e' // Free demo key
+      }
     });
-  }, 1500);
+
+    const data = await response.json();
+
+    if (data.videos && data.videos.length > 0) {
+      // Get the direct MP4 link
+      const videoFiles = data.videos[0].video_files;
+      const selectedVideo = videoFiles.find((f: any) => f.quality === 'sd' || f.quality === 'hd') || videoFiles[0];
+      
+      return res.json({
+        success: true,
+        prompt: prompt,
+        videoUrl: selectedVideo.link
+      });
+    }
+
+    // Fallback if no specific video matches
+    return res.json({
+      success: false,
+      message: 'No video found'
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Failed to fetch video' });
+  }
 });
 
 app.listen(PORT, () => {
