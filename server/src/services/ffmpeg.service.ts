@@ -1,13 +1,13 @@
 export class FFmpegService {
-  static async processVideo(input: string): Promise<string> {
+  static async processVideo(input?: any): Promise<any> {
     return input;
   }
 
-  static async overlayAudio(videoPath: string, audioPath: string, outputPath: string): Promise<string> {
-    return outputPath;
+  static async overlayAudio(videoPath?: any, audioPath?: any, outputPath?: any): Promise<any> {
+    return outputPath || videoPath;
   }
 
-  static async mergeVideos(videoPaths: string[], outputPath: string): Promise<string> {
+  static async mergeVideos(videoPaths?: any, outputPath?: any): Promise<any> {
     return outputPath;
   }
 }
